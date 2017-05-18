@@ -6,9 +6,9 @@
 
 -- НАСТРАИВАЕМЫЕ ПАРАМЕТРЫ
 -- Имя базы данных для резервной копии
-DECLARE @DBName as nvarchar(40) = 'fto_sok'
+DECLARE @DBName as nvarchar(40) = 'WorkBase'
 -- Каталог для резервной копии
-DECLARE @Path as nvarchar(400) = 'C:\ФТО\VION\Backup_SQL\'
+DECLARE @Path as nvarchar(400) = 'E:\Backup_SQL'
 -- Тип резервного копирования:
 --		0 - Полная резервная копия с флагом "Только резервное копирование"
 --		1 - Полная резервная копия
@@ -34,12 +34,13 @@ DECLARE @finalmassage as NVARCHAR(1000)
 use master
 
 -- Формируем строку для исполнения
+-- Формируем строку для исполнения
 IF @Type = 3 SET @SQLString = 
 	N'BACKUP LOG [' + @DBName + ']
-	TO DISK = N''' + @Path + @DBName + '_' + Replace(CONVERT(nvarchar, GETDATE(), 126),':','-') + '.trn'' '
+	TO DISK = N''' + @Path + '\\' + @DBName + '_' + Replace(CONVERT(nvarchar, GETDATE(), 126),':','-') + '.trn'' '
 ELSE SET @SQLString = 
 	N'BACKUP DATABASE [' + @DBName + ']
-	TO DISK = N''' + @Path + @DBName + '_' + Replace(CONVERT(nvarchar, GETDATE(), 126),':','-') + '.bak'' '
+	TO DISK = N''' + @Path + '\\' + @DBName + '_' + Replace(CONVERT(nvarchar, GETDATE(), 126),':','-') + '.bak'' '
 set @SQLString = @SQLString +		  
 	'WITH NOFORMAT, NOINIT,
 	SKIP, NOREWIND, NOUNLOAD, STATS = 10'
