@@ -309,6 +309,8 @@ EXEC msdb.dbo.sp_send_dbmail
     @body = @finalmassage,
     @subject = @subject;
 
--- Выводим сообщение о резульатте
+-- Выводим сообщение о результате
 SELECT
 	@subject as massage
+	
+GO
