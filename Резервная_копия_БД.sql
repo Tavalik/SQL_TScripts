@@ -4,7 +4,7 @@
 --		1. Создает резервную копию определенного типа указанной базы данных в указанный каталог
 --		2. Отправляется электронное сообщение о результате работы с использованием настроенного почтового профиля
 -- Автор: Онянов Виталий (Tavalik.ru)
--- Версия от 18.05.2017
+-- Версия от 20.05.2017
 -------------------------------------------
 
 -- НАСТРАИВАЕМЫЕ ПАРАМЕТРЫ
@@ -30,9 +30,8 @@ DECLARE @recipients as nvarchar(500) = 'admin@mydomen.com'
 -------------------------------------------
 -- СЛУЖЕБНЫЕ ПЕРЕМЕННЫЕ
 DECLARE @SQLString NVARCHAR(4000)
-DECLARE @error as int
-DECLARE @subject as NVARCHAR(100)
-DECLARE @finalmassage as NVARCHAR(1000)
+DECLARE @subject as NVARCHAR(100) = ''
+DECLARE @finalmassage as NVARCHAR(1000) = ''
 
 -------------------------------------------
 -- ТЕЛО СКРИПТА
@@ -52,24 +51,27 @@ IF @Compression = 1 SET @SQLString = @SQLString + ', COMPRESSION'
 IF @Type = 0 SET @SQLString = @SQLString + ', COPY_ONLY'
 IF @Type = 2 SET @SQLString = @SQLString + ', DIFFERENTIAL'
 
--- Исполнение
+-- Выводим и выполняем полученную инструкцию
 PRINT @SQLString
-EXEC sp_executesql @SQLString
-SET @error = @@error
-IF @error <> 0
-	BEGIN
-		-- Ошбика выполнения операции
-		SET @subject = 'ОШИБКА Создания резервной копии базы ' + @DBName
-		SET @finalmassage = 'Ошибка создания резервной копии базы ' + @DBName + ' в каталог ' + @Path + CHAR(13) + CHAR(13)
-			+ 'Код ошибки: ' + CAST(@error as nvarchar(5)) + CHAR(13) + CHAR(13)
-			+ 'Текст T-SQL:' + CHAR(13) + @SQLString 
-	END
-ELSE
-	BEGIN
-		-- Успешное выполнение всех операций
-		SET @subject = 'Успешное создание резервной копии базы ' + @DBName
-		SET @finalmassage = 'Успешное создание резревной копии базы ' + @DBName + ' в каталог ' + @Path
-	END
+BEGIN TRY 
+	EXEC sp_executesql @SQLString
+END TRY
+BEGIN CATCH  
+	-- Ошбика выполнения операции
+	SET @subject = 'ОШИБКА Создания резервной копии базы ' + @DBName
+	SET @finalmassage = 'Ошибка создания резервной копии базы ' + @DBName + ' в каталог ' + @Path + CHAR(13) + CHAR(13)
+		+ 'Код ошибки: ' + CAST(ERROR_NUMBER() as nvarchar(10)) + CHAR(13) + CHAR(13)
+		+ 'Текст ошибки: ' + ERROR_MESSAGE()  + CHAR(13) + CHAR(13)
+		+ 'Текст T-SQL:' + CHAR(13) + @SQLString  
+END CATCH;
+
+-- Если ошибок не было, сформируем текст сообщения
+IF @subject = ''
+BEGIN
+	-- Успешное выполнение всех операций
+	SET @subject = 'Успешное создание резервной копии базы ' + @DBName
+	SET @finalmassage = 'Успешное создание резревной копии базы ' + @DBName + ' в каталог ' + @Path
+END
 
 -- Если задан профиль электронной почты, отправим сообщение
 IF @profile_name <> ''
@@ -81,6 +83,7 @@ EXEC msdb.dbo.sp_send_dbmail
 
 -- Выводим сообщение о результате
 SELECT
-	@subject as massage
+	@subject as subject,
+	@finalmassage as finalmassage
 
 GO
