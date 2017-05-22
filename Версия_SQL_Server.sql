@@ -11,4 +11,6 @@ SELECT
 	SERVERPROPERTY('ServerName') AS InstanceName,  
 	SERVERPROPERTY('Edition') AS Edition,
 	SERVERPROPERTY('ProductVersion') AS ProductVersion,  
-	SERVERPROPERTY('ProductLevel') AS ProductLevel; 
+	SERVERPROPERTY('ProductLevel') AS ProductLevel;
+	
+GO 
