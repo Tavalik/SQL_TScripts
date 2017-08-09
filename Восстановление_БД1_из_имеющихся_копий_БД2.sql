@@ -8,7 +8,7 @@
 --		5. База-назначения сжимается
 --		6. Отправляется электронное сообщение о результате работы с использованием настроенного почтового профиля
 -- Автор: Онянов Виталий (Tavalik.ru)
--- Версия от 20.05.2017
+-- Версия от 09.08.2017
 -- Свежие версии скриптов: https://github.com/Tavalik/SQL_TScripts
 
 -------------------------------------------
@@ -40,8 +40,8 @@ use master
 -- Удалим временные таблицы, если вдруг они есть
 IF OBJECT_ID('tempdb.dbo.#BackupFiles') IS NOT NULL DROP TABLE #BackupFiles
 IF OBJECT_ID('tempdb.dbo.#FullBackup') IS NOT NULL DROP TABLE #FullBackup
-IF OBJECT_ID('tempdb.dbo.#DiffBackup') IS NOT NULL DROP TABLE DiffBackup
-IF OBJECT_ID('tempdb.dbo.#LogBackup') IS NOT NULL DROP TABLE LogBackup
+IF OBJECT_ID('tempdb.dbo.#DiffBackup') IS NOT NULL DROP TABLE #DiffBackup
+IF OBJECT_ID('tempdb.dbo.#LogBackup') IS NOT NULL DROP TABLE #LogBackup
 
 -- Соберем данные о всех сдаланных раннее бэкапах
 SELECT
