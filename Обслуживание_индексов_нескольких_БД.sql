@@ -7,7 +7,7 @@
 --			2.2. Если фрагментация менее или равна 30% тогда выполняется дефрагментация, иначе реиндексация индекса
 --		3. Отправляется электронное сообщение о результате работы с использованием настроенного почтового профиля
 -- Автор: Онянов Виталий (Tavalik.ru)
--- Версия от 22.05.2017
+-- Версия от 09.08.2017
 -- Свежие версии скриптов: https://github.com/Tavalik/SQL_TScripts
 
 ---------------------------------------------
@@ -42,11 +42,11 @@ DECLARE DBcursor CURSOR FOR
 		name as database_name
 	FROM sys.databases d
 	WHERE 
-		name <> 'tempdb'
-		AND name <> 'master'
-		AND name <> 'model'
-		AND name <> 'msdb'
-		AND state_desc = 'ONLINE' -- база должна быть в сети 
+		d.name <> 'tempdb'
+		AND d.name <> 'master'
+		AND d.name <> 'model'
+		AND d.name <> 'msdb'
+		AND d.state_desc = 'ONLINE' -- база должна быть в сети 
 		AND d.name like @namelike -- база должна содержать указанное слово   
 )
 
