@@ -8,7 +8,7 @@
 --		5. База-назначения сжимается
 --		6. Отправляется электронное сообщение о результате работы с использованием настроенного почтового профиля
 -- Автор: Онянов Виталий (Tavalik.ru)
--- Версия от 09.08.2017
+-- Версия от 17.08.2017
 -- Свежие версии скриптов: https://github.com/Tavalik/SQL_TScripts
 
 -------------------------------------------
@@ -42,6 +42,7 @@ IF OBJECT_ID('tempdb.dbo.#BackupFiles') IS NOT NULL DROP TABLE #BackupFiles
 IF OBJECT_ID('tempdb.dbo.#FullBackup') IS NOT NULL DROP TABLE #FullBackup
 IF OBJECT_ID('tempdb.dbo.#DiffBackup') IS NOT NULL DROP TABLE #DiffBackup
 IF OBJECT_ID('tempdb.dbo.#LogBackup') IS NOT NULL DROP TABLE #LogBackup
+IF OBJECT_ID('tempdb.dbo.#BackupFilesFinal') IS NOT NULL DROP TABLE #BackupFilesFinal
 
 -- Соберем данные о всех сдаланных раннее бэкапах
 SELECT
@@ -56,7 +57,10 @@ FROM msdb.dbo.backupset AS backupset
 	ON backupset.media_set_id = backupmediafamily.media_set_id
 WHERE backupset.database_name = @DBName_From 
 	and backupset.backup_start_date < @BackupTime
-	--and backupset.is_copy_only = 0 -- флаг "Только резервное копирование"
+	and backupset.is_copy_only = 0 -- флаг "Только резервное копирование"
+	and backupset.is_snapshot = 0 -- флаг "Не snapshot"
+	and (backupset.description is null or backupset.description not like 'Image-level backup') -- Защита от Veeam Backup & Replication
+	and device_type <> 7
 ORDER BY 
 	backupset.backup_start_date DESC
 
@@ -101,22 +105,34 @@ FROM #BackupFiles AS BackupFiles
 	) AS table_lsn
 	ON BackupFiles.backup_start_date > table_lsn.backup_start_date
 WHERE BackupFiles.btype = 'L'
-ORDER BY BackupFiles.backup_start_date DESC
 
 -- Инициируем цикл по объединению всех трех таблиц
-DECLARE bkf CURSOR LOCAL FAST_FORWARD FOR 
+SELECT physical_device_name
+INTO #BackupFilesFinal
+FROM 
 (
 	SELECT
+		backup_start_date,
 		physical_device_name
 	FROM #FullBackup
 	UNION ALL
 	SELECT
+		backup_start_date,
 		physical_device_name
 	FROM #DiffBackup
 	UNION ALL
 	SELECT
+		backup_start_date,
 		physical_device_name
 	FROM #LogBackup
+) AS T 
+ORDER BY backup_start_date
+
+-- Соберем файлы в цикл
+DECLARE bkf CURSOR LOCAL FAST_FORWARD FOR 
+(
+	SELECT physical_device_name
+	FROM #BackupFilesFinal
 );
 
 -- Начало цикла
@@ -301,6 +317,7 @@ drop table #BackupFiles
 drop table #FullBackup
 drop table #DiffBackup
 drop table #LogBackup
+drop table #BackupFilesFinal
 
 -- Если задан профиль электронной почты, отправим сообщение
 IF @profile_name <> ''
