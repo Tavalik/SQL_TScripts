@@ -1,23 +1,26 @@
-﻿-------------------------------------------
+-------------------------------------------
 -- Скрипт выполняет реорганизацию либо дефрагменатцию индексов баз данных
 --	Алгоритм работы:
 --		1. Отбираются базы данных по задаваемому условнию
 --		2. Для каждой из баз данных:
---			2.1. Собираются информация обо всех фрагментированных индексах (степерь фрагментации более 5%)
+--			2.1. Собираются информация обо всех фрагментированных индексах (степень фрагментации более 5%)
 --			2.2. Если фрагментация менее или равна 30% тогда выполняется дефрагментация, иначе реиндексация индекса
 --		3. Отправляется электронное сообщение о результате работы с использованием настроенного почтового профиля
 -- Автор: Онянов Виталий (Tavalik.ru)
+-- Чуть доработал Serge V. Ivanov в свзяи с тем, что 1С версий 8.3.22.хххх отключает блокировку страниц для всех индексов. 
+--    для возможности выполнения реорганизации или перестроения ее необходимо включать. Потом выключать.
 -- Версия от 09.08.2017
 -- Свежие версии скриптов: https://github.com/Tavalik/SQL_TScripts
 
 ---------------------------------------------
 -- НАСТРАИВАЕМЫЕ ПАРАМЕТРЫ
 -- Условие для выборки, '%' - все базы данных 
-DECLARE @namelike varchar(100) = 'WorkBase%'
+DECLARE @namelike varchar(100) = '%'
+
 -- Имя почтового профиля, для отправки электонной почты									
-DECLARE @profilename as nvarchar(100) = 'ОсновнойПрофиль'
+DECLARE @profilename as nvarchar(100) = 'mail.ru'
 -- Получатели сообщений электронной почты, разделенные знаком ";"				
-DECLARE @recipients as nvarchar(500) = 'admin@mydomen.com'
+DECLARE @recipients as nvarchar(500) = 'ivanov@kpd-cargo.com'
 
 -------------------------------------------
 -- СЛУЖЕБНЫЕ ПЕРЕМЕННЫЕ 
@@ -62,6 +65,13 @@ WHILE @@FETCH_STATUS = 0
 	SET @command = 
 	N'USE [' + @database_name + N']
 
+	----------------------------------------------------------------------- SET it --------------------------
+	-- минимальное кол-во страниц в индексе для обработки
+	DECLARE @minpages as int = 10
+	-- Минимальный процент дефрагментации для ребилда
+	DECLARE @minpercent as float = 10
+	---------------------------------------------------------------------------------------------------------
+
 	DECLARE @object_id int; -- ID объекта
 	DECLARE @index_id int; -- ID индекса
 	DECLARE @partition_number bigint; -- количество секций если индекс секционирован
@@ -75,8 +85,8 @@ WHILE @@FETCH_STATUS = 0
 	-- Отбор таблиц и индексов с помощью системного представления sys.dm_db_index_physical_stats
 	-- Отбор только тех объектов которые:
 	--	 являются индексами (index_id > 0)
-	--   фрагментация которых более 5% 
-	--   количество страниц в индексе более 128 
+	--   фрагментация которых более @minpercent 
+	--   количество страниц в индексе более @minpages
 	SELECT
 		object_id,
 		index_id,
@@ -85,8 +95,8 @@ WHILE @@FETCH_STATUS = 0
 	INTO #work_to_do
 	FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL , NULL, ''LIMITED'')
 	WHERE index_id > 0 
-		AND avg_fragmentation_in_percent > 5.0
-		AND page_count > 128;
+		AND avg_fragmentation_in_percent > @minpercent
+		AND page_count > @minpages;
 
 	-- Объявление Открытие курсора курсора для чтения секций
 	DECLARE partitions CURSOR FOR SELECT * FROM #work_to_do;
@@ -112,9 +122,11 @@ WHILE @@FETCH_STATUS = 0
 			WHERE object_id = @object_id AND index_id = @index_id;
 
 			-- Если фрагментация менее или равна 30% тогда дефрагментация, иначе реиндексация
-			IF @fragmentation_in_percent < 30.0
+			-- Разрешаем блокировку страниц
+            SET @command = N''ALT ER   INDEX '' + @indexname + N'' ON '' + @schemaname + N''.'' + @objectname + N'' SET (ALLOW_PAGE_LOCKS = ON, ALLOW_ROW_LOCKS = ON);'';
+			IF @fragmentation_in_percent < @MinPercent
 				SET @command = N''ALTER INDEX '' + @indexname + N'' ON '' + @schemaname + N''.'' + @objectname + N'' REORGANIZE'';
-			IF @fragmentation_in_percent >= 30.0
+			IF @fragmentation_in_percent >= @MinPercent
 				SET @command = N''ALTER INDEX '' + @indexname + N'' ON '' + @schemaname + N''.'' + @objectname + N'' REBUILD'';
 			IF @partition_number > 1
 				SET @command = @command + N'' PARTITION='' + CAST(@partition_number AS nvarchar(10));
@@ -122,7 +134,8 @@ WHILE @@FETCH_STATUS = 0
 			-- Выполняем команду				
 			PRINT N''    Executed: '' + @command;
 			EXEC sp_executesql @command			
-		
+			-- Снова запрещаем блокировку страниц
+		    SET @command = @command + N''ALT ER   INDEX '' + @indexname + N'' ON '' + @schemaname + N''.'' + @objectname + N'' SET (ALLOW_PAGE_LOCKS = OFF , ALLOW_ROW_LOCKS = ON);'';
 			-- Следующий элемент цикла
 			FETCH NEXT FROM partitions INTO @object_id, @index_id, @partition_number, @fragmentation_in_percent;
 
