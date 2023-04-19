@@ -18,9 +18,9 @@
 DECLARE @namelike varchar(100) = '%'
 
 -- Имя почтового профиля, для отправки электонной почты									
-DECLARE @profilename as nvarchar(100) = 'mail.ru'
+DECLARE @profilename as nvarchar(100) = 'profile'
 -- Получатели сообщений электронной почты, разделенные знаком ";"				
-DECLARE @recipients as nvarchar(500) = 'ivanov@kpd-cargo.com'
+DECLARE @recipients as nvarchar(500) = 'admin@mydomen.com'
 
 -------------------------------------------
 -- СЛУЖЕБНЫЕ ПЕРЕМЕННЫЕ 
